@@ -47,7 +47,7 @@ do
 	bgpq3 -S ARIN,ALTDB,RADB,LEVEL3,NTTCOM,RIPE -AXR 24 -m 24 -l $PEER_UC-IN-IPV4 $AS_SET >> "${TIME}.tmp"
 	
 	# For Dev Purposes, add timestamp to end of file so there's a difference
-	 echo ${TIME} >> "${TIME}.tmp"
+	# echo ${TIME} >> "${TIME}.tmp"
 
 	# Get a list of .cur files
 	CUR_ARR=(`find ./ -maxdepth 1 -name "*.cur"`)
