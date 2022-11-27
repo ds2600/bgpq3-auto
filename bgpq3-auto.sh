@@ -10,6 +10,18 @@ add_log()
 	echo "${LOG_DT} [${2}] ${1}" >> $LOG_FILE
 }
 
+notify()
+{
+	if [ "$USE_SENDGRID" = true ];
+	then
+		send_email "${1}" "${2}"
+	fi
+	if [ "$USE_TWILIO" = true ];
+	then
+		send_sms "${1}"
+	fi
+}
+
 send_email()
 {
 	ENCODED=${2//$'\n'/<br/>} # Replace \n with <br/> for email formatting
@@ -17,6 +29,15 @@ send_email()
 	 
 	# Use SendGrid for emailing updates
 	curl --request POST --url "https://api.sendgrid.com/v3/mail/send" --header "Authorization: Bearer ${SENDGRID_API_KEY}" --header 'Content-Type: application/json' --data '{"personalizations": [{"to": [{"email": "'${EMAIL_TO}'"}]}],"from": {"email": "'${EMAIL_FROM}'"},"subject":"[bgpq3] Peer Update","content": [{"type": "text/html","value": "'${1}' has an updated prefix list.<p>'${ENCODED}'</p>"}]}'
+}
+
+send_sms()
+{
+	curl 'https://api.twilio.com/2010-04-01/Accounts/'${TWILIO_ACCT_SID}'/Messages.json' -s -X POST \
+	--data-urlencode 'To='${SMS_TO} \
+	--data-urlencode 'MessagingServiceSid='${MESSAGING_SERVICE_SID} \
+	--data-urlencode 'Body='${1}' has an updated prefix list.' \
+	-u ${TWILIO_ACCT_SID}':'${TWILIO_AUTH_TOKEN} >> sms.log
 }
 
 if [ -z $1 ]
@@ -47,7 +68,7 @@ do
 	bgpq3 -S ARIN,ALTDB,RADB,LEVEL3,NTTCOM,RIPE -AXR 24 -m 24 -l $PEER_UC-IN-IPV4 $AS_SET >> "${TIME}.tmp"
 	
 	# For Dev Purposes, add timestamp to end of file so there's a difference
-	# echo ${TIME} >> "${TIME}.tmp"
+	echo ${TIME} >> "${TIME}.tmp"
 
 	# Get a list of .cur files
 	CUR_ARR=(`find ./ -maxdepth 1 -name "*.cur"`)
@@ -70,12 +91,12 @@ do
 			mv "${TIME}.tmp" "${TIME}.cur"
 
 			add_log "Files moved" ${peer}
-			send_email "${peer}" "`cat ${TIME}.cur`"
+			notify "${peer}" "`cat ${TIME}.cur`"
 		fi
 	else
 		mv "${TIME}.tmp" "${TIME}.cur"
 		add_log "Initial query completed" ${peer}
-		send_email "${peer}" "`cat ${TIME}.cur`"
+		notify "${peer}" "`cat ${TIME}.cur`"
 	fi
 	cd ..
 	add_log "Query completed" ${peer}
